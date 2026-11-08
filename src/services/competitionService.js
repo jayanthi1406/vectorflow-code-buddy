@@ -1,0 +1,2 @@
+import { readMockState } from './mockStore'
+export const competitionService = { async getProgress() { const student = readMockState().student; return student ? { currentLevel: student.currentLevel, highestLevel: student.highestLevel, levelsCleared: student.levelsCleared, status: student.competitionStatus, roundAvailability: student.roundAvailability, roundEntered: student.roundEntered } : null } }
