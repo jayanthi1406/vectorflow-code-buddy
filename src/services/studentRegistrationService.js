@@ -13,8 +13,24 @@ export const studentRegistrationService = {
     const duplicateInSeed = demoAccounts.some(account => account.usn && account.usn.toUpperCase() === normalizedUsn && account.email.toLowerCase() !== identity.email.toLowerCase())
     const duplicateInRegistered = state.registrations.some(profile => profile.usn.toUpperCase() === normalizedUsn && profile.email.toLowerCase() !== identity.email.toLowerCase())
     if (duplicateInSeed || duplicateInRegistered) throw new Error('That USN is already registered. Check the number or contact competition support.')
-    const student = mockProfileFor({ name: identity.name, email: identity.email, usn: normalizedUsn, year })
-    const registrations = [...state.registrations.filter(profile => profile.email.toLowerCase() !== identity.email.toLowerCase()), { name: student.name, email: student.email, usn: student.usn, year: student.year }]
+    const student = mockProfileFor({
+      name: identity.name,
+      email: identity.email,
+      usn: normalizedUsn,
+      year,
+      currentLevel: 1,
+      highestLevel: 1,
+      levelsCleared: 0,
+      walletBalance: 0,
+      totalEarned: 0,
+      totalEntryFeesPaid: 0,
+      totalRisked: 0,
+      competitionStatus: 'In progress',
+      roundAvailability: 'ready',
+      roundEntered: false,
+      questionAssignments: {},
+    })
+    const registrations = [...state.registrations.filter(profile => profile.email.toLowerCase() !== identity.email.toLowerCase()), { name: student.name, email: student.email, usn: student.usn, year: student.year, demoProfile: student }]
     return writeMockState({ ...state, registrations, pendingIdentity: null, student, auth: { signedIn: true, mode: 'demo' } })
   },
 }

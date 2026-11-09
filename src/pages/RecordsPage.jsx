@@ -3,13 +3,14 @@ import { ArrowUpRight, Medal, Wallet } from 'lucide-react'
 import { competitionRecordsService } from '../services/competitionRecordsService'
 import { useStudent } from '../context/StudentContext'
 import { formatCurrency } from '../utils/formatters'
-import { LoadingState, SectionHeading } from '../components/ui'
+import { EmptyState, LoadingState, SectionHeading } from '../components/ui'
 
 export default function RecordsPage() {
   const { state } = useStudent()
   const [records, setRecords] = useState(null)
   const [error, setError] = useState(false)
-  useEffect(() => { competitionRecordsService.getRecords().then(setRecords).catch(() => setError(true)) }, [])
+  useEffect(() => { if (state.auth?.mode === 'real') return; competitionRecordsService.getRecords().then(setRecords).catch(() => setError(true)) }, [state.auth?.mode])
+  if (state.auth?.mode === 'real') return <div className="page records-page"><SectionHeading kicker="Competition-wide milestones" title="Competition records." detail="The records API is not connected in this authentication phase." /><EmptyState title="Records are not available yet." detail="No demo record data is shown in a backend-authenticated session." /></div>
   const recordLevel = state.levelConfigurations.find(level => level.number === records?.highestRound?.value)
 
   return <div className="page records-page">
