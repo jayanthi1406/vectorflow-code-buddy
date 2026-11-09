@@ -18,10 +18,12 @@ app.use(express.json());
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const volunteerRoutes = require('./routes/volunteerRoutes');
+const questionRoutes = require('./routes/questionRoutes');
 
 // Mount API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/questions', questionRoutes);
 app.use('/api/volunteer', volunteerRoutes);
 
 // Helper function to map Mongoose readyState numbers to readable status strings
