@@ -14,6 +14,16 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Import route modules
+const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const volunteerRoutes = require('./routes/volunteerRoutes');
+
+// Mount API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/volunteer', volunteerRoutes);
+
 // Helper function to map Mongoose readyState numbers to readable status strings
 const getMongoConnectionStatus = () => {
   const connectionStates = {
@@ -68,13 +78,14 @@ const connectDB = async () => {
 
   if (!mongoUri) {
     console.error('Database connection error: MONGO_URI is not defined in the backend environment.');
-    return;
+    process.exit(1);
   }
 
   try {
     await mongoose.connect(mongoUri);
   } catch (error) {
     console.error(`Database connection error: ${error.message}`);
+    process.exit(1);
   }
 };
 
@@ -90,4 +101,3 @@ const startServer = async () => {
 startServer();
 
 module.exports = app;
-

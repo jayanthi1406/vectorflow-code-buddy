@@ -36,6 +36,16 @@ const studentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Authorization role
+    role: {
+      type: String,
+      enum: {
+        values: ['STUDENT'],
+        message: '{VALUE} is not a valid student role',
+      },
+      default: 'STUDENT',
+      required: [true, 'Role is required'],
+    },
     // University Seat Number (unique per student; required when registration is complete)
     usn: {
       type: String,
@@ -53,10 +63,10 @@ const studentSchema = new mongoose.Schema(
       validate: {
         validator: function (value) {
           if (!value) return true; // Handled by conditional required validator above
-          // General alphanumeric validation (5-20 characters) to avoid overly restrictive branch/batch assumptions
-          return /^[A-Z0-9]{5,20}$/i.test(value);
+          // Flexible alphanumeric validation (8-15 characters) matching current platform standard
+          return /^[A-Z0-9]{8,15}$/i.test(value);
         },
-        message: (props) => `${props.value} is not a valid USN format (alphanumeric, 5-20 characters)`,
+        message: (props) => `${props.value} is not a valid USN format (alphanumeric, 8-15 characters)`,
       },
     },
     // Academic year of study (required when registration is complete)

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const staffSchema = new mongoose.Schema(
   {
@@ -24,15 +25,16 @@ const staffSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Password hash is required'],
     },
-    // Staff role
+    // Staff role (discriminator key for ADMIN and VOLUNTEER models)
     role: {
       type: String,
       enum: {
-        values: ['admin', 'volunteer'],
+        values: ['ADMIN', 'VOLUNTEER'],
         message: '{VALUE} is not a valid staff role',
       },
+      set: (val) => (typeof val === 'string' ? val.toUpperCase() : val),
       required: [true, 'Role is required'],
-      default: 'volunteer',
+      default: 'VOLUNTEER',
       index: true,
     },
     // Account active status
@@ -50,10 +52,11 @@ const staffSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    discriminatorKey: 'role',
   }
 );
 
-// Prevent password hash from being leaked in JSON responses
+// Prevent password hash from being leaked in JSON and object transforms
 staffSchema.set('toJSON', {
   transform: (doc, ret) => {
     delete ret.passwordHash;
@@ -61,8 +64,30 @@ staffSchema.set('toJSON', {
   },
 });
 
-// Compile and export Staff model
-const Staff = mongoose.model('Staff', staffSchema);
+staffSchema.set('toObject', {
+  transform: (doc, ret) => {
+    delete ret.passwordHash;
+    return ret;
+  },
+});
+
+/**
+ * Compare plain candidate password against securely hashed password
+ */
+staffSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!candidatePassword || !this.passwordHash) return false;
+  return bcrypt.compare(candidatePassword, this.passwordHash);
+};
+
+/**
+ * Static helper to hash a plain password using bcrypt (10 rounds)
+ */
+staffSchema.statics.hashPassword = async function (plainPassword) {
+  const saltRounds = 10;
+  return bcrypt.hash(plainPassword, saltRounds);
+};
+
+// Compile and export Staff base model
+const Staff = mongoose.models.Staff || mongoose.model('Staff', staffSchema);
 
 module.exports = Staff;
-
