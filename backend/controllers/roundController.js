@@ -1,4 +1,5 @@
-const { Round, Question, Level } = require('../models');
+const mongoose = require('mongoose');
+const { Round, Question, Level, Evaluation } = require('../models');
 
 /**
  * Validate and parse a stored Round deadline into epoch milliseconds.
@@ -192,10 +193,18 @@ const syncRoundDeadlineState = async (round, now = new Date()) => {
 };
 
 /**
+ * Check whether a Mongoose model query can execute safely in the current runtime
+ * (either connected to MongoDB or explicitly mocked on the model).
+ */
+const canQueryModel = (Model, methodName = 'findOne') =>
+  mongoose.connection.readyState === 1 ||
+  Boolean(Model && typeof Model[methodName] === 'function' && Model[methodName] !== mongoose.Model[methodName]);
+
+/**
  * Derive authoritative Student.roundAvailability from the active Round status
  * and Student.competitionStatus using valid Student schema enum values.
  */
-const deriveStudentRoundAvailability = (student, round = null) => {
+const deriveStudentRoundAvailability = (student, round = null, evaluation = null) => {
   if (!student) {
     return 'unavailable';
   }
@@ -218,7 +227,21 @@ const deriveStudentRoundAvailability = (student, round = null) => {
         eliminated: 'eliminated',
         cleared: 'cleared',
       };
-      return postEvalMap[student.competitionStatus] || 'unavailable';
+      if (postEvalMap[student.competitionStatus]) {
+        return postEvalMap[student.competitionStatus];
+      }
+      if (evaluation) {
+        if (evaluation.status === 'FAIL') {
+          return 'eliminated';
+        }
+        if (evaluation.status === 'PASS') {
+          if (evaluation.isProgressed) {
+            return round.levelNumber >= 6 ? 'completed' : 'ready';
+          }
+          return 'cleared';
+        }
+      }
+      return 'unavailable';
     }
 
     const roundToAvailabilityMap = {
@@ -234,6 +257,152 @@ const deriveStudentRoundAvailability = (student, round = null) => {
   }
 
   return student.roundAvailability || 'unavailable';
+};
+
+/**
+ * Derive a read-only synchronized live snapshot of student competition state
+ * (currentLevel, highestLevelReached, levelsCleared, competitionStatus, roundAvailability)
+ * from Student, Round, Evaluation, and non-mutating timer checks.
+ * Never performs database writes.
+ */
+const resolveStudentLiveState = async (student) => {
+  if (!student) {
+    return {
+      currentLevel: 1,
+      highestLevelReached: 1,
+      levelsCleared: 0,
+      competitionStatus: 'registered',
+      roundAvailability: 'unavailable',
+    };
+  }
+
+  let liveCurrentLevel =
+    Number.isInteger(student.currentLevel) && student.currentLevel >= 1 && student.currentLevel <= 6
+      ? student.currentLevel
+      : 1;
+  let liveHighestLevelReached = Math.max(student.highestLevelReached ?? 1, liveCurrentLevel);
+  let liveLevelsCleared = student.levelsCleared ?? 0;
+  let liveCompetitionStatus = student.competitionStatus || 'registered';
+
+  if (
+    !student.registrationComplete &&
+    liveCompetitionStatus !== 'completed' &&
+    liveCompetitionStatus !== 'eliminated'
+  ) {
+    return {
+      currentLevel: liveCurrentLevel,
+      highestLevelReached: liveHighestLevelReached,
+      levelsCleared: liveLevelsCleared,
+      competitionStatus: liveCompetitionStatus,
+      roundAvailability: deriveStudentRoundAvailability(student, null),
+    };
+  }
+
+  let inspectedRound = null;
+  let inspectedEvaluation = null;
+
+  if (student.registrationComplete && canQueryModel(Round, 'findOne')) {
+    for (let step = 0; step < 6; step += 1) {
+      const round = await Round.findOne({
+        studentId: student._id,
+        levelNumber: liveCurrentLevel,
+      });
+
+      if (!round) {
+        inspectedRound = null;
+        inspectedEvaluation = null;
+        break;
+      }
+
+      inspectedRound = round;
+      inspectedEvaluation = null;
+
+      if (round.status === 'evaluated' && canQueryModel(Evaluation, 'findOne')) {
+        const evaluation = await Evaluation.findOne({ roundId: round._id });
+        inspectedEvaluation = evaluation || null;
+
+        if (evaluation && evaluation.status === 'PASS' && evaluation.isProgressed) {
+          liveLevelsCleared = Math.max(liveLevelsCleared, liveCurrentLevel);
+          if (liveCurrentLevel < 6) {
+            liveCurrentLevel += 1;
+            liveHighestLevelReached = Math.max(liveHighestLevelReached, liveCurrentLevel);
+            if (liveCompetitionStatus === 'registered' || liveCompetitionStatus === 'cleared') {
+              liveCompetitionStatus = 'inProgress';
+            }
+            continue;
+          }
+
+          liveCurrentLevel = 6;
+          liveHighestLevelReached = 6;
+          liveLevelsCleared = 6;
+          liveCompetitionStatus = 'completed';
+        } else if (evaluation && evaluation.status === 'PASS') {
+          if (liveCompetitionStatus !== 'completed' && liveCompetitionStatus !== 'eliminated') {
+            liveCompetitionStatus = 'cleared';
+          }
+        } else if (evaluation && evaluation.status === 'FAIL') {
+          liveCompetitionStatus = 'eliminated';
+        }
+        break;
+      }
+
+      if (['inProgress', 'timeExpired', 'submitted'].includes(round.status)) {
+        if (liveCompetitionStatus === 'registered' || liveCompetitionStatus === 'cleared') {
+          liveCompetitionStatus = 'inProgress';
+        }
+        break;
+      }
+
+      if (round.status === 'ready') {
+        if (liveCompetitionStatus === 'cleared') {
+          liveCompetitionStatus = liveCurrentLevel > 1 || liveLevelsCleared > 0 ? 'inProgress' : 'registered';
+        }
+        break;
+      }
+
+      break;
+    }
+  }
+
+  if (liveCompetitionStatus === 'completed') {
+    liveCurrentLevel = 6;
+    liveHighestLevelReached = 6;
+    liveLevelsCleared = 6;
+  } else if (!inspectedRound && liveCompetitionStatus !== 'eliminated') {
+    if (liveCurrentLevel > 1 || liveLevelsCleared > 0) {
+      if (liveCompetitionStatus === 'registered' || liveCompetitionStatus === 'cleared') {
+        liveCompetitionStatus = 'inProgress';
+      }
+    } else if (liveCompetitionStatus === 'cleared') {
+      liveCompetitionStatus = 'registered';
+    }
+  }
+
+  let liveRoundAvailability = deriveStudentRoundAvailability(
+    {
+      competitionStatus: liveCompetitionStatus,
+      roundAvailability: student.roundAvailability,
+    },
+    inspectedRound,
+    inspectedEvaluation
+  );
+
+  // If no Round exists yet at liveCurrentLevel, do not carry forward stale mid-round statuses.
+  if (
+    !inspectedRound &&
+    ['registered', 'inProgress'].includes(liveCompetitionStatus) &&
+    ['inProgress', 'evaluationPending', 'cleared', 'completed', 'eliminated'].includes(liveRoundAvailability)
+  ) {
+    liveRoundAvailability = 'ready';
+  }
+
+  return {
+    currentLevel: liveCurrentLevel,
+    highestLevelReached: liveHighestLevelReached,
+    levelsCleared: liveLevelsCleared,
+    competitionStatus: liveCompetitionStatus,
+    roundAvailability: liveRoundAvailability,
+  };
 };
 
 /**
@@ -654,4 +823,5 @@ module.exports = {
   computeTimerFields,
   parseValidDeadlineMs,
   deriveStudentRoundAvailability,
+  resolveStudentLiveState,
 };

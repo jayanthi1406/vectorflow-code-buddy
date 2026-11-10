@@ -1,6 +1,7 @@
 const { OAuth2Client } = require('google-auth-library');
 const { Student } = require('../models');
 const { signStudentToken } = require('../middleware/authMiddleware');
+const { resolveStudentLiveState } = require('./roundController');
 
 // Lazily initialize OAuth2Client to ensure process.env.GOOGLE_CLIENT_ID is read at runtime
 let googleClient = null;
@@ -18,7 +19,7 @@ const getGoogleClient = () => {
 /**
  * Helper to normalize and format student profile data for client responses
  */
-const formatStudentResponse = (student) => ({
+const formatStudentResponse = (student, liveState = null) => ({
   id: student._id.toString(),
   name: student.name,
   email: student.email,
@@ -26,11 +27,11 @@ const formatStudentResponse = (student) => ({
   registrationComplete: student.registrationComplete,
   usn: student.usn || null,
   year: student.year || null,
-  currentLevel: student.currentLevel,
-  highestLevelReached: student.highestLevelReached ?? 1,
-  levelsCleared: student.levelsCleared ?? 0,
-  competitionStatus: student.competitionStatus,
-  roundAvailability: student.roundAvailability,
+  currentLevel: liveState?.currentLevel ?? student.currentLevel,
+  highestLevelReached: liveState?.highestLevelReached ?? (student.highestLevelReached ?? 1),
+  levelsCleared: liveState?.levelsCleared ?? (student.levelsCleared ?? 0),
+  competitionStatus: liveState?.competitionStatus ?? student.competitionStatus,
+  roundAvailability: liveState?.roundAvailability ?? student.roundAvailability,
   walletBalance: student.walletBalance ?? 0,
   totalEarned: student.totalEarned ?? 0,
   totalRisked: student.totalRisked ?? 0,
@@ -220,12 +221,13 @@ const verifyGoogleAuth = async (req, res) => {
       });
     }
 
-    // 10. Return structured response
+    // 10. Resolve read-only live competition state and return structured response
+    const liveState = await resolveStudentLiveState(student);
     return res.status(200).json({
       success: true,
       token,
       registrationComplete: student.registrationComplete,
-      student: formatStudentResponse(student),
+      student: formatStudentResponse(student, liveState),
     });
   } catch (error) {
     console.error('Unhandled verifyGoogleAuth error:', error.message);
@@ -383,10 +385,11 @@ const completeRegistration = async (req, res) => {
         latestStudent.usn === normalizedUsn &&
         latestStudent.year === normalizedYear
       ) {
+        const liveState = await resolveStudentLiveState(latestStudent);
         return res.status(200).json({
           success: true,
           message: 'Student registration is already complete.',
-          student: formatStudentResponse(latestStudent),
+          student: formatStudentResponse(latestStudent, liveState),
         });
       }
 
@@ -399,10 +402,11 @@ const completeRegistration = async (req, res) => {
     }
 
     // 9. Return structured success response
+    const liveState = await resolveStudentLiveState(updatedStudent);
     return res.status(200).json({
       success: true,
       message: 'Student registration completed successfully.',
-      student: formatStudentResponse(updatedStudent),
+      student: formatStudentResponse(updatedStudent, liveState),
     });
   } catch (error) {
     console.error('Unhandled completeRegistration error:', error.message);
@@ -418,16 +422,17 @@ const completeRegistration = async (req, res) => {
  * Controller: getMe
  * Endpoint: GET /api/auth/me
  *
- * Protected route returning the current authenticated student profile.
- * Student document is provided directly by protectStudent middleware from MongoDB.
+ * Protected route returning the current authenticated student profile
+ * synchronized with live round and evaluation state without mutating DB state.
  */
 const getMe = async (req, res) => {
   try {
     const student = req.student;
+    const liveState = await resolveStudentLiveState(student);
 
     return res.status(200).json({
       success: true,
-      student: formatStudentResponse(student),
+      student: formatStudentResponse(student, liveState),
     });
   } catch (error) {
     console.error('getMe controller error:', error.message);
