@@ -13,16 +13,17 @@ const transactionSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['STAKE_DEBIT', 'REWARD_CREDIT', 'REFUND', 'SAFE_ZONE_PAYOUT', 'ADMIN_ADJUSTMENT'],
+        values: ['STAKE_DEBIT', 'REWARD_CREDIT', 'REFUND', 'SAFE_ZONE_PAYOUT', 'ADMIN_ADJUSTMENT', 'ROUND_SETTLEMENT'],
         message: '{VALUE} is not a valid transaction type',
       },
       required: [true, 'Transaction type is required'],
       index: true,
     },
-    // Transaction amount (negative for stakes, positive for rewards/refunds)
+    // Transaction amount (non-negative magnitude of balance change)
     amount: {
       type: Number,
       required: [true, 'Transaction amount is required'],
+      min: [0, 'Transaction amount cannot be negative'],
     },
     // Resulting student wallet balance after this transaction (must not be negative)
     balanceAfter: {
@@ -42,6 +43,14 @@ const transactionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Round',
       default: null,
+    },
+    // Unique settlement identifier enforcing at most one settlement transaction per round
+    settlementKey: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+      default: undefined,
     },
     // Human-readable transaction statement description
     description: {

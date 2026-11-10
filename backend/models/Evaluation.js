@@ -64,6 +64,45 @@ const evaluationSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // Tracks whether financial wallet settlement has been applied for this evaluation
+    isSettled: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    // Timestamp when wallet settlement was completed
+    settledAt: {
+      type: Date,
+      default: null,
+    },
+    // Volunteer staff member who performed wallet settlement
+    settledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Staff',
+      default: null,
+    },
+    // Reference to the immutable settlement Transaction record
+    settlementTransactionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Transaction',
+      default: null,
+    },
+    // Tracks whether student progression and statistics have been applied for this evaluation
+    isProgressed: {
+      type: Boolean,
+      default: false,
+    },
+    // Timestamp when student progression was finalized
+    progressedAt: {
+      type: Date,
+      default: null,
+    },
+    // Volunteer staff member who finalized progression
+    progressedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Staff',
+      default: null,
+    },
   },
   {
     timestamps: true,
