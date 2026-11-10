@@ -22,6 +22,7 @@ const questionRoutes = require('./routes/questionRoutes');
 const roundRoutes = require('./routes/roundRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const competitionRoutes = require('./routes/competitionRoutes');
+const leaderboardRoutes = require('./routes/leaderboardRoutes');
 
 // Mount API routes
 app.use('/api/auth', authRoutes);
@@ -31,6 +32,7 @@ app.use('/api/volunteer', volunteerRoutes);
 app.use('/api/rounds', roundRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/competition', competitionRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 // Helper function to map Mongoose readyState numbers to readable status strings
 const getMongoConnectionStatus = () => {

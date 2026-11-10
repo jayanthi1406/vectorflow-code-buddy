@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 const { getCompetitionConfig } = require('../controllers/studentController');
-const { protectStudent } = require('../middleware/authMiddleware');
+const { getCompetitionRecords } = require('../controllers/leaderboardController');
+const { protectStudent, protectRoles } = require('../middleware/authMiddleware');
 
 /**
  * @route   GET /api/competition/config
@@ -10,6 +11,13 @@ const { protectStudent } = require('../middleware/authMiddleware');
  * @access  Protected (Student only)
  */
 router.get('/config', protectStudent, getCompetitionConfig);
+
+/**
+ * @route   GET /api/competition/records
+ * @desc    Retrieve competition-wide milestone highlights and completion statistics (compatibility alias)
+ * @access  Protected (STUDENT, VOLUNTEER, ADMIN)
+ */
+router.get('/records', protectRoles('STUDENT', 'VOLUNTEER', 'ADMIN'), getCompetitionRecords);
 
 module.exports = router;
 

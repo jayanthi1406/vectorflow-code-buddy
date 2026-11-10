@@ -362,6 +362,177 @@ const authorizeVolunteer = (req, res, next) => {
   next();
 };
 
+/**
+ * Resolve and validate the live database account matching an authenticated JWT role.
+ * Enforces account existence, role match, and active status for staff accounts.
+ */
+const resolveAuthenticatedAccount = async (req, role, subjectId) => {
+  if (role === 'STUDENT') {
+    const student = await Student.findById(subjectId);
+    if (!student) {
+      return {
+        error: {
+          status: 401,
+          code: 'USER_NOT_FOUND',
+          message: 'Student account belonging to this token no longer exists.',
+        },
+      };
+    }
+    if (student.role !== 'STUDENT') {
+      return {
+        error: {
+          status: 403,
+          code: 'FORBIDDEN_ROLE',
+          message: 'Access denied. Account is not a registered student.',
+        },
+      };
+    }
+    req.student = student;
+    req.user = {
+      id: student._id.toString(),
+      role: 'STUDENT',
+    };
+    return { account: student };
+  }
+
+  if (role === 'ADMIN') {
+    const admin = await Admin.findById(subjectId);
+    if (!admin) {
+      return {
+        error: {
+          status: 401,
+          code: 'USER_NOT_FOUND',
+          message: 'Admin account belonging to this token no longer exists.',
+        },
+      };
+    }
+    if (admin.role?.toUpperCase() !== 'ADMIN') {
+      return {
+        error: {
+          status: 403,
+          code: 'FORBIDDEN_ROLE',
+          message: 'Access denied. Account does not have administrator privileges.',
+        },
+      };
+    }
+    if (!admin.isActive) {
+      return {
+        error: {
+          status: 403,
+          code: 'ACCOUNT_DEACTIVATED',
+          message: 'Admin account has been deactivated.',
+        },
+      };
+    }
+    req.admin = admin;
+    req.user = {
+      id: admin._id.toString(),
+      role: 'ADMIN',
+    };
+    return { account: admin };
+  }
+
+  if (role === 'VOLUNTEER') {
+    const volunteer = await Volunteer.findById(subjectId);
+    if (!volunteer) {
+      return {
+        error: {
+          status: 401,
+          code: 'USER_NOT_FOUND',
+          message: 'Volunteer account belonging to this token no longer exists.',
+        },
+      };
+    }
+    if (volunteer.role?.toUpperCase() !== 'VOLUNTEER') {
+      return {
+        error: {
+          status: 403,
+          code: 'FORBIDDEN_ROLE',
+          message: 'Access denied. Account does not have volunteer privileges.',
+        },
+      };
+    }
+    if (!volunteer.isActive) {
+      return {
+        error: {
+          status: 403,
+          code: 'ACCOUNT_DEACTIVATED',
+          message: 'Volunteer account has been deactivated. Please contact an administrator.',
+        },
+      };
+    }
+    req.volunteer = volunteer;
+    req.user = {
+      id: volunteer._id.toString(),
+      role: 'VOLUNTEER',
+    };
+    return { account: volunteer };
+  }
+
+  return {
+    error: {
+      status: 403,
+      code: 'FORBIDDEN_ROLE',
+      message: 'Access denied. Insufficient role authorization.',
+    },
+  };
+};
+
+/**
+ * Shared Multi-Role Authentication Middleware Factory (protectRoles)
+ *
+ * Allows access to requests bearing a valid JWT whose role is included in allowedRoles,
+ * while enforcing live MongoDB account existence and active staff verification.
+ */
+const protectRoles = (...allowedRoles) => {
+  const normalizedAllowedRoles = allowedRoles
+    .flat()
+    .map((role) => (typeof role === 'string' ? role.trim().toUpperCase() : ''))
+    .filter(Boolean);
+
+  return async (req, res, next) => {
+    try {
+      let decoded;
+      try {
+        decoded = extractAndVerifyToken(req);
+      } catch (tokenErr) {
+        return res.status(tokenErr.statusCode || 401).json({
+          success: false,
+          code: tokenErr.code || 'AUTH_FAILED',
+          message: tokenErr.message,
+        });
+      }
+
+      const tokenRole = typeof decoded.role === 'string' ? decoded.role.trim().toUpperCase() : '';
+      if (!normalizedAllowedRoles.includes(tokenRole)) {
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_ROLE',
+          message: 'Access denied. Insufficient role authorization.',
+        });
+      }
+
+      const resolved = await resolveAuthenticatedAccount(req, tokenRole, decoded.sub.trim());
+      if (resolved.error) {
+        return res.status(resolved.error.status).json({
+          success: false,
+          code: resolved.error.code,
+          message: resolved.error.message,
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Multi-role auth middleware error:', error.message);
+      return res.status(500).json({
+        success: false,
+        code: 'INTERNAL_AUTH_ERROR',
+        message: 'Internal authentication error.',
+      });
+    }
+  };
+};
+
 module.exports = {
   getJwtSecret,
   signStudentToken,
@@ -372,4 +543,5 @@ module.exports = {
   authorizeAdmin,
   protectVolunteer,
   authorizeVolunteer,
+  protectRoles,
 };

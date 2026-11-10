@@ -297,5 +297,7 @@ module.exports = {
   getStudentTransactions,
   getStudentRoundHistory,
   getCompetitionConfig,
+  parsePaginationQuery,
+  buildPaginationMeta,
 };
 
