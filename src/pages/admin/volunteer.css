@@ -131,6 +131,13 @@
   font-size: 12px;
 }
 
+.volunteer-api-message {
+  margin: -10px 0 0;
+  color: #b33b35;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* VOLUNTEER TABLE */
 
 .volunteer-table-container {

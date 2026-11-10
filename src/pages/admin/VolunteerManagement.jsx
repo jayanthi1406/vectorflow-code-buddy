@@ -1,180 +1,130 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
-  Pencil,
-  Trash2,
   X,
   Users,
   UserCheck,
   UserX,
   Eye,
 } from "lucide-react";
+import {
+  createAdminVolunteer,
+  getAdminVolunteers,
+  setAdminVolunteerActive,
+} from "../../services/adminVolunteerService";
 import "./volunteer.css";
-
-const initialVolunteers = [
-  {
-    id: 1,
-    name: "Meera Sharma",
-    usn: "4VV23CS010",
-    email: "meera@vvce.ac.in",
-    assigned: 8,
-    status: "ACTIVE",
-  },
-  {
-    id: 2,
-    name: "Arjun Rao",
-    usn: "4VV23CS011",
-    email: "arjun@vvce.ac.in",
-    assigned: 6,
-    status: "ACTIVE",
-  },
-  {
-    id: 3,
-    name: "Sneha Kumar",
-    usn: "4VV23CS012",
-    email: "sneha@vvce.ac.in",
-    assigned: 0,
-    status: "INACTIVE",
-  },
-];
 
 const emptyForm = {
   name: "",
-  usn: "",
-  email: "",
-  status: "ACTIVE",
+  username: "",
+  password: "",
+  assignedLab: "",
 };
 
+function statusLabel(volunteer) {
+  return volunteer.isActive ? "ACTIVE" : "INACTIVE";
+}
+
 export default function VolunteerManagement() {
-  const [volunteers, setVolunteers] = useState(initialVolunteers);
+  const [volunteers, setVolunteers] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
   const [selectedVolunteer, setSelectedVolunteer] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [error, setError] = useState("");
 
-  const filteredVolunteers = volunteers.filter((volunteer) => {
-    const query = search.toLowerCase();
-
-    const matchesSearch =
-      volunteer.name.toLowerCase().includes(query) ||
-      volunteer.usn.toLowerCase().includes(query) ||
-      volunteer.email.toLowerCase().includes(query);
-
-    const matchesStatus =
-      statusFilter === "ALL" ||
-      volunteer.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const activeCount = volunteers.filter(
-    (v) => v.status === "ACTIVE"
-  ).length;
-
-  const inactiveCount = volunteers.filter(
-    (v) => v.status === "INACTIVE"
-  ).length;
-
-  const openAddForm = () => {
-    setEditingId(null);
-    setForm({ ...emptyForm });
-    setShowForm(true);
+  const loadVolunteers = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getAdminVolunteers();
+      setVolunteers(data);
+    } catch (loadError) {
+      setError(loadError.message || "Could not load volunteers.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openEditForm = (volunteer) => {
-    setEditingId(volunteer.id);
-    setForm({
-      name: volunteer.name,
-      usn: volunteer.usn,
-      email: volunteer.email,
-      status: volunteer.status,
+  useEffect(() => {
+    loadVolunteers();
+  }, []);
+
+  const filteredVolunteers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return volunteers.filter((volunteer) => {
+      const matchesSearch = [volunteer.name, volunteer.username, volunteer.assignedLab]
+        .some((value) => String(value || "").toLowerCase().includes(query));
+      const matchesStatus = statusFilter === "ALL" || statusLabel(volunteer) === statusFilter;
+      return matchesSearch && matchesStatus;
     });
+  }, [volunteers, search, statusFilter]);
+
+  const activeCount = volunteers.filter((volunteer) => volunteer.isActive).length;
+  const inactiveCount = volunteers.length - activeCount;
+
+  const openAddForm = () => {
+    setForm({ ...emptyForm });
+    setError("");
     setShowForm(true);
   };
 
   const closeForm = () => {
     setShowForm(false);
-    setEditingId(null);
     setForm({ ...emptyForm });
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
-
-    if (editingId !== null) {
-      setVolunteers((previous) =>
-        previous.map((volunteer) =>
-          volunteer.id === editingId
-            ? { ...volunteer, ...form }
-            : volunteer
-        )
-      );
-    } else {
-      setVolunteers((previous) => [
-        ...previous,
-        {
-          id: Date.now(),
-          ...form,
-          assigned: 0,
-        },
-      ]);
+    setSaving(true);
+    setError("");
+    try {
+      await createAdminVolunteer({
+        name: form.name.trim(),
+        username: form.username.trim(),
+        password: form.password,
+        assignedLab: form.assignedLab.trim(),
+      });
+      closeForm();
+      await loadVolunteers();
+    } catch (saveError) {
+      setError(saveError.message || "Could not create the volunteer.");
+    } finally {
+      setSaving(false);
     }
-
-    closeForm();
   };
 
-  const toggleStatus = (id) => {
-    setVolunteers((previous) =>
-      previous.map((volunteer) =>
-        volunteer.id === id
-          ? {
-              ...volunteer,
-              status:
-                volunteer.status === "ACTIVE"
-                  ? "INACTIVE"
-                  : "ACTIVE",
-            }
-          : volunteer
-      )
-    );
-  };
-
-  const handleDelete = (volunteer) => {
-    if (volunteer.assigned > 0) {
-      alert(
-        "Reassign this volunteer's students before deleting the account."
-      );
-      return;
-    }
-
-    if (window.confirm(`Delete ${volunteer.name}?`)) {
-      setVolunteers((previous) =>
-        previous.filter((item) => item.id !== volunteer.id)
-      );
+  const toggleStatus = async (volunteer) => {
+    setUpdatingId(volunteer.id);
+    setError("");
+    try {
+      await setAdminVolunteerActive(volunteer.id, !volunteer.isActive);
+      await loadVolunteers();
+      if (selectedVolunteer?.id === volunteer.id) {
+        setSelectedVolunteer((current) => current ? { ...current, isActive: !current.isActive } : current);
+      }
+    } catch (updateError) {
+      setError(updateError.message || "Could not update the volunteer status.");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   return (
     <div className="volunteer-management">
-
       <div className="volunteer-page-header">
         <div>
-          <span className="admin-eyebrow">
-            COMPETITION MANAGEMENT
-          </span>
+          <span className="admin-eyebrow">COMPETITION MANAGEMENT</span>
           <h1>Volunteer Management.</h1>
-          <p>
-            Manage volunteer accounts and competition assignments.
-          </p>
+          <p>Manage volunteer accounts and competition assignments.</p>
         </div>
 
-        <button
-          className="volunteer-add-btn"
-          onClick={openAddForm}
-        >
+        <button className="volunteer-add-btn" onClick={openAddForm}>
           <Plus size={18} />
           Add Volunteer
         </button>
@@ -186,13 +136,11 @@ export default function VolunteerManagement() {
           <span>Total Volunteers</span>
           <strong>{volunteers.length}</strong>
         </div>
-
         <div>
           <UserCheck size={21} />
           <span>Active Volunteers</span>
           <strong>{activeCount}</strong>
         </div>
-
         <div>
           <UserX size={21} />
           <span>Inactive Volunteers</span>
@@ -205,103 +153,82 @@ export default function VolunteerManagement() {
           <Search size={18} />
           <input
             type="text"
-            placeholder="Search name, USN or email..."
+            placeholder="Search name, username or assigned location..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
-
-        <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-        >
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
           <option value="ALL">All Statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
         </select>
       </div>
 
+      {error && <p className="volunteer-api-message" role="alert">{error}</p>}
+
       <div className="volunteer-table-container">
         <div className="volunteer-table-heading">
           <h2>Volunteer Directory</h2>
           <span>{filteredVolunteers.length} volunteers</span>
         </div>
-
         <div className="volunteer-table-scroll">
           <table className="volunteer-table">
             <thead>
               <tr>
                 <th>VOLUNTEER</th>
-                <th>USN</th>
-                <th>ASSIGNED STUDENTS</th>
+                <th>ASSIGNED LOCATION</th>
                 <th>STATUS</th>
                 <th>ACTIONS</th>
               </tr>
             </thead>
-
             <tbody>
-              {filteredVolunteers.map((volunteer) => (
-                <tr key={volunteer.id}>
-                  <td>
-                    <strong>{volunteer.name}</strong>
-                    <small>{volunteer.email}</small>
-                  </td>
-
-                  <td>{volunteer.usn}</td>
-                  <td>{volunteer.assigned}</td>
-
-                  <td>
-                    <span
-                      className={`volunteer-status ${volunteer.status.toLowerCase()}`}
-                    >
-                      {volunteer.status}
-                    </span>
-                  </td>
-
-                  <td>
-                    <div className="volunteer-actions">
-                      <button
-                        title="View details"
-                        onClick={() =>
-                          setSelectedVolunteer(volunteer)
-                        }
-                      >
-                        <Eye size={15} />
-                      </button>
-
-                      <button
-                        title="Edit volunteer"
-                        onClick={() => openEditForm(volunteer)}
-                      >
-                        <Pencil size={15} />
-                      </button>
-
-                      <button
-                        title="Change account status"
-                        onClick={() => toggleStatus(volunteer.id)}
-                      >
-                        {volunteer.status === "ACTIVE"
-                          ? <UserX size={15} />
-                          : <UserCheck size={15} />}
-                      </button>
-
-                      <button
-                        title="Delete volunteer"
-                        disabled={volunteer.assigned > 0}
-                        onClick={() => handleDelete(volunteer)}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredVolunteers.length === 0 && (
+              {filteredVolunteers.map((volunteer) => {
+                const status = statusLabel(volunteer);
+                return (
+                  <tr key={volunteer.id}>
+                    <td>
+                      <strong>{volunteer.name}</strong>
+                      <small>{volunteer.username}</small>
+                    </td>
+                    <td>{volunteer.assignedLab || "—"}</td>
+                    <td>
+                      <span className={`volunteer-status ${status.toLowerCase()}`}>
+                        {status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="volunteer-actions">
+                        <button
+                          type="button"
+                          title="View details"
+                          aria-label={`View ${volunteer.name}`}
+                          onClick={() => setSelectedVolunteer(volunteer)}
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          title={volunteer.isActive ? "Deactivate volunteer" : "Reactivate volunteer"}
+                          aria-label={volunteer.isActive ? "Deactivate volunteer" : "Reactivate volunteer"}
+                          disabled={updatingId === volunteer.id}
+                          onClick={() => toggleStatus(volunteer)}
+                        >
+                          {volunteer.isActive ? <UserX size={15} /> : <UserCheck size={15} />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!loading && filteredVolunteers.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="volunteer-empty">
-                    No volunteers found.
-                  </td>
+                  <td colSpan="4" className="volunteer-empty">No volunteers found.</td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td colSpan="4" className="volunteer-empty">Loading volunteers…</td>
                 </tr>
               )}
             </tbody>
@@ -314,81 +241,62 @@ export default function VolunteerManagement() {
           <div className="volunteer-modal">
             <div className="volunteer-modal-header">
               <div>
-                <span className="admin-eyebrow">
-                  VOLUNTEER ACCOUNTS
-                </span>
-                <h2>
-                  {editingId !== null
-                    ? "Edit Volunteer"
-                    : "Add Volunteer"}
-                </h2>
+                <span className="admin-eyebrow">VOLUNTEER ACCOUNTS</span>
+                <h2>Add Volunteer</h2>
               </div>
-
-              <button type="button" onClick={closeForm}>
+              <button type="button" onClick={closeForm} aria-label="Close add volunteer form">
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleSave}>
               <div className="volunteer-form-field">
-                <label>Full Name</label>
+                <label htmlFor="volunteer-name">Full Name</label>
                 <input
+                  id="volunteer-name"
                   value={form.name}
-                  onChange={(event) =>
-                    setForm({ ...form, name: event.target.value })
-                  }
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
                   placeholder="Enter volunteer name"
                   required
                 />
               </div>
-
               <div className="volunteer-form-field">
-                <label>USN</label>
+                <label htmlFor="volunteer-username">Username</label>
                 <input
-                  value={form.usn}
-                  onChange={(event) =>
-                    setForm({ ...form, usn: event.target.value })
-                  }
-                  placeholder="Enter USN"
+                  id="volunteer-username"
+                  value={form.username}
+                  onChange={(event) => setForm({ ...form, username: event.target.value })}
+                  placeholder="Enter username"
+                  autoComplete="off"
                   required
                 />
               </div>
-
               <div className="volunteer-form-field">
-                <label>College Email</label>
+                <label htmlFor="volunteer-password">Password</label>
                 <input
-                  type="email"
-                  value={form.email}
-                  onChange={(event) =>
-                    setForm({ ...form, email: event.target.value })
-                  }
-                  placeholder="name@vvce.ac.in"
+                  id="volunteer-password"
+                  type="password"
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                  placeholder="Set an initial password"
+                  autoComplete="new-password"
                   required
                 />
               </div>
-
               <div className="volunteer-form-field">
-                <label>Account Status</label>
-                <select
-                  value={form.status}
-                  onChange={(event) =>
-                    setForm({ ...form, status: event.target.value })
-                  }
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                </select>
+                <label htmlFor="volunteer-location">Assigned Location</label>
+                <input
+                  id="volunteer-location"
+                  value={form.assignedLab}
+                  onChange={(event) => setForm({ ...form, assignedLab: event.target.value })}
+                  placeholder="Enter physical work location"
+                  required
+                />
               </div>
-
               <div className="volunteer-form-actions">
-                <button type="button" onClick={closeForm}>
-                  Cancel
-                </button>
-
-                <button type="submit">
-                  {editingId !== null
-                    ? "Save Changes"
-                    : "Add Volunteer"}
+                <button type="button" onClick={closeForm}>Cancel</button>
+                <button type="submit" disabled={saving}>
+                  {saving ? "Adding…" : "Add Volunteer"}
                 </button>
               </div>
             </form>
@@ -401,51 +309,27 @@ export default function VolunteerManagement() {
           <div className="volunteer-modal">
             <div className="volunteer-modal-header">
               <div>
-                <span className="admin-eyebrow">
-                  VOLUNTEER DETAILS
-                </span>
+                <span className="admin-eyebrow">VOLUNTEER DETAILS</span>
                 <h2>{selectedVolunteer.name}</h2>
               </div>
-
-              <button
-                onClick={() => setSelectedVolunteer(null)}
-              >
+              <button type="button" onClick={() => setSelectedVolunteer(null)} aria-label="Close volunteer details">
                 <X size={20} />
               </button>
             </div>
-
             <div className="volunteer-detail-list">
-              <div>
-                <span>USN</span>
-                <strong>{selectedVolunteer.usn}</strong>
-              </div>
-
-              <div>
-                <span>Email</span>
-                <strong>{selectedVolunteer.email}</strong>
-              </div>
-
-              <div>
-                <span>Assigned Students</span>
-                <strong>{selectedVolunteer.assigned}</strong>
-              </div>
-
-              <div>
-                <span>Account Status</span>
-                <strong>{selectedVolunteer.status}</strong>
-              </div>
+              <div><span>Username</span><strong>{selectedVolunteer.username}</strong></div>
+              <div><span>Role</span><strong>{selectedVolunteer.role || "—"}</strong></div>
+              <div><span>Assigned Location</span><strong>{selectedVolunteer.assignedLab || "—"}</strong></div>
+              <div><span>Account Status</span><strong>{statusLabel(selectedVolunteer)}</strong></div>
+              <div><span>Created</span><strong>{selectedVolunteer.createdAt || "—"}</strong></div>
+              <div><span>Last Updated</span><strong>{selectedVolunteer.updatedAt || "—"}</strong></div>
             </div>
-
-            <button
-              className="volunteer-close-btn"
-              onClick={() => setSelectedVolunteer(null)}
-            >
+            <button className="volunteer-close-btn" onClick={() => setSelectedVolunteer(null)}>
               Close
             </button>
           </div>
         </div>
       )}
-
     </div>
   );
 }

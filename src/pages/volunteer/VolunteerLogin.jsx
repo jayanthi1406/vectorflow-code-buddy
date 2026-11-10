@@ -1,45 +1,42 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Mail,
+  UserRound,
   LockKeyhole,
   Eye,
   EyeOff,
-  UserRound,
 } from "lucide-react";
 import { Brand } from "../../components/ui";
+import { loginVolunteer } from "../../services/volunteerAuthService";
 import "./volunteer-login.css";
 
 export default function VolunteerLogin() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    const normalizedEmail = email.trim().toLowerCase();
-
-    if (!normalizedEmail || !password.trim()) {
-      setError("Please enter your email and password.");
+    if (!username.trim() || !password) {
+      setError("Please enter your username and password.");
       return;
     }
 
-    const vvceEmailPattern = /^[a-zA-Z0-9._%+-]+@vvce\.ac\.in$/;
-
-    if (!vvceEmailPattern.test(normalizedEmail)) {
-      setError("Please use your official VVCE email (@vvce.ac.in).");
-      return;
-    }
-
+    setLoading(true);
     setError("");
-
-    // Temporary frontend demo navigation.
-    // Actual email and password verification will be handled by the backend.
-    navigate("/volunteer/dashboard");
+    try {
+      await loginVolunteer(username.trim(), password);
+      navigate("/volunteer/dashboard", { replace: true });
+    } catch (loginError) {
+      setError(loginError.message || "Unable to sign in. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,23 +55,26 @@ export default function VolunteerLogin() {
         <h1>Welcome back</h1>
 
         <p className="vol-login-description">
-          Sign in using your official VVCE email to manage
+          Sign in with your volunteer username to manage
           your assigned participants and evaluations.
         </p>
 
         <form onSubmit={handleLogin}>
           <div className="vol-login-field">
-            <label htmlFor="vol-email">VVCE Email Address</label>
+            <label htmlFor="vol-username">Username</label>
 
             <div className="vol-login-input">
-              <Mail size={18} />
+              <UserRound size={18} />
 
               <input
-                id="vol-email"
-                type="email"
-                placeholder="yourname@vvce.ac.in"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="vol-username"
+                type="text"
+                placeholder="Enter your volunteer username"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setError("");
+                }}
                 autoComplete="username"
                 required
               />
@@ -120,8 +120,8 @@ export default function VolunteerLogin() {
             </p>
           )}
 
-          <button type="submit" className="vol-login-button">
-            Sign In
+          <button type="submit" className="vol-login-button" disabled={loading}>
+            {loading ? "Signing in…" : "Sign In"}
           </button>
         </form>
 
