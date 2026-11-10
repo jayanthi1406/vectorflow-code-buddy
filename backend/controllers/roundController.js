@@ -271,6 +271,24 @@ const formatRoundStudentResponse = (round, timerState = null) => {
 };
 
 /**
+ * Format Level configuration for student-facing API responses.
+ */
+const formatLevelResponse = (levelConfig) => ({
+  number: levelConfig.number,
+  name: levelConfig.name,
+  entryRiskAmount:
+    levelConfig.entryRiskAmount !== null && levelConfig.entryRiskAmount !== undefined
+      ? levelConfig.entryRiskAmount
+      : 0,
+  winningPayout: levelConfig.winningPayout,
+  losingPayout: levelConfig.losingPayout,
+  safeZoneAmount: levelConfig.safeZoneAmount ?? 0,
+  isSafeZone: Boolean(levelConfig.isSafeZone),
+  isFinal: Boolean(levelConfig.isFinal),
+  durationSeconds: levelConfig.durationSeconds,
+});
+
+/**
  * Controller: getLevelInfo
  * Endpoint: GET /api/rounds/level-info
  * Access: Protected (Student only)
@@ -317,17 +335,7 @@ const getLevelInfo = async (req, res) => {
       success: true,
       currentLevel,
       walletBalance: student.walletBalance ?? 0,
-      level: {
-        number: levelConfig.number,
-        name: levelConfig.name,
-        entryRiskAmount: levelConfig.entryRiskAmount !== null ? levelConfig.entryRiskAmount : 0,
-        winningPayout: levelConfig.winningPayout,
-        losingPayout: levelConfig.losingPayout,
-        safeZoneAmount: levelConfig.safeZoneAmount ?? 0,
-        isSafeZone: levelConfig.isSafeZone,
-        isFinal: levelConfig.isFinal,
-        durationSeconds: levelConfig.durationSeconds,
-      },
+      level: formatLevelResponse(levelConfig),
     });
   } catch (error) {
     console.error('Error fetching level info:', error.message);
@@ -640,6 +648,7 @@ module.exports = {
   getLevelInfo,
   allocateQuestion,
   getActiveRoundStatus,
+  formatLevelResponse,
   formatRoundStudentResponse,
   syncRoundDeadlineState,
   computeTimerFields,
