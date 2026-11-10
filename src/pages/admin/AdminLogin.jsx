@@ -1,28 +1,37 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { Brand } from "../../components/ui";
+import { loginAdmin } from "../../services/adminAuthService";
 import "./admin-login.css";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter your email and password.");
+    if (!username.trim() || !password) {
+      setError("Please enter your username and password.");
       return;
     }
 
-    setError(
-      "Backend authentication integration is pending. Please try again after configuration."
-    );
+    setLoading(true);
+    setError("");
+    try {
+      await loginAdmin(username.trim(), password);
+      navigate("/admin/dashboard", { replace: true });
+    } catch (loginError) {
+      setError(loginError.message || "Unable to sign in. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,17 +52,18 @@ export default function AdminLogin() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          <label htmlFor="admin-email">Email address</label>
+          <label htmlFor="admin-username">Username</label>
 
           <div className="admin-login-input">
-            <Mail size={17} />
+            <UserRound size={17} />
             <input
-              id="admin-email"
-              type="email"
-              placeholder="Enter your admin email"
-              value={email}
+              id="admin-username"
+              type="text"
+              autoComplete="username"
+              placeholder="Enter your admin username"
+              value={username}
               onChange={(e) => {
-                setEmail(e.target.value);
+                setUsername(e.target.value);
                 setError("");
               }}
             />
@@ -66,6 +76,7 @@ export default function AdminLogin() {
             <input
               id="admin-password"
               type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => {
@@ -85,8 +96,8 @@ export default function AdminLogin() {
 
           {error && <p className="admin-login-error">{error}</p>}
 
-          <button type="submit" className="admin-login-submit">
-            Sign in
+          <button type="submit" className="admin-login-submit" disabled={loading}>
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 

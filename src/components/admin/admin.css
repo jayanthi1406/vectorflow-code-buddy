@@ -176,6 +176,20 @@
   color: var(--forest);
 }
 
+.admin-logout-button {
+  display: inline-grid;
+  place-items: center;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+  cursor: pointer;
+}
+
+.admin-logout-button:hover {
+  color: var(--ink);
+}
+
 .admin-content {
   padding: 32px;
   max-width: 1500px;
