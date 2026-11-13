@@ -9,13 +9,20 @@ const {
 const { adminLogin } = require('../controllers/adminController');
 const { volunteerLogin } = require('../controllers/volunteerController');
 const { protectStudent } = require('../middleware/authMiddleware');
+const { getRateLimiters } = require('../middleware/securityMiddleware');
+
+const {
+  googleAuthLimiter,
+  adminLoginLimiters,
+  volunteerLoginLimiters,
+} = getRateLimiters();
 
 /**
  * @route   POST /api/auth/google
  * @desc    Verify Google ID token, authenticate/provision student, issue JWT
  * @access  Public
  */
-router.post('/google', verifyGoogleAuth);
+router.post('/google', googleAuthLimiter, verifyGoogleAuth);
 
 /**
  * @route   POST /api/auth/register
@@ -36,13 +43,13 @@ router.get('/me', protectStudent, getMe);
  * @desc    Admin credential login alias
  * @access  Public
  */
-router.post('/admin/login', adminLogin);
+router.post('/admin/login', ...adminLoginLimiters, adminLogin);
 
 /**
  * @route   POST /api/auth/volunteer/login
  * @desc    Volunteer credential login alias
  * @access  Public
  */
-router.post('/volunteer/login', volunteerLogin);
+router.post('/volunteer/login', ...volunteerLoginLimiters, volunteerLogin);
 
 module.exports = router;

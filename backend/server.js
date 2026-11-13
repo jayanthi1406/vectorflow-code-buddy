@@ -1,18 +1,47 @@
 const path = require('path');
 const express = require('express');
-const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 
-// Configure dotenv to load variables from backend/.env
+// 1. Load environment variables before configuring middleware
 dotenv.config({ path: path.join(__dirname, '.env') });
+
+const {
+  resolveTrustProxySetting,
+  parseJsonBodyLimit,
+  validateStartupEnv,
+  createHelmetMiddleware,
+  createCorsMiddleware,
+  getRateLimiters,
+} = require('./middleware/securityMiddleware');
+const {
+  notFoundHandler,
+  errorHandler,
+} = require('./middleware/errorMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Configure CORS and express.json middleware
-app.use(cors());
-app.use(express.json());
+// 2. Proxy configuration (disabled unless explicitly configured via TRUST_PROXY)
+const trustProxyConfig = resolveTrustProxySetting(process.env.TRUST_PROXY);
+if (!trustProxyConfig.error && trustProxyConfig.value !== undefined) {
+  app.set('trust proxy', trustProxyConfig.value);
+}
+
+// 3. Security headers (remove X-Powered-By and apply Helmet defaults compatible with frontend integrations)
+app.disable('x-powered-by');
+app.use(createHelmetMiddleware());
+
+// 4. Environment-driven CORS allowlist
+app.use(createCorsMiddleware());
+
+// 5. Explicit bounded JSON request body parser (API is JSON-only)
+const jsonLimitConfig = parseJsonBodyLimit(process.env.JSON_BODY_LIMIT);
+app.use(express.json({ limit: jsonLimitConfig.value || '256kb' }));
+
+// 6. General API rate limiting (exempts /api/health; generous default for shared campus NAT IP)
+const { generalApiLimiter } = getRateLimiters();
+app.use('/api', generalApiLimiter);
 
 // Import route modules
 const authRoutes = require('./routes/authRoutes');
@@ -82,6 +111,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// 9. Structured 404 handler for unmatched API and non-API routes
+app.use(notFoundHandler);
+
+// 10. Centralized 4-argument Express error handler (must be registered last)
+app.use(errorHandler);
+
 // Connect to MongoDB Atlas
 const connectDB = async () => {
   const mongoUri = process.env.MONGO_URI;
@@ -101,6 +136,15 @@ const connectDB = async () => {
 
 // Start the server
 const startServer = async () => {
+  const envValidation = validateStartupEnv();
+  if (!envValidation.valid) {
+    console.error('Server startup aborted due to invalid environment configuration:');
+    for (const issue of envValidation.errors) {
+      console.error(` - ${issue}`);
+    }
+    process.exit(1);
+  }
+
   await connectDB();
 
   app.listen(PORT, () => {

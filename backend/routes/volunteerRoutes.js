@@ -16,13 +16,16 @@ const {
   protectVolunteer,
   authorizeVolunteer,
 } = require('../middleware/authMiddleware');
+const { getRateLimiters } = require('../middleware/securityMiddleware');
+
+const { volunteerLoginLimiters } = getRateLimiters();
 
 /**
  * @route   POST /api/volunteer/login
  * @desc    Volunteer credential login (username + password)
  * @access  Public
  */
-router.post('/login', volunteerLogin);
+router.post('/login', ...volunteerLoginLimiters, volunteerLogin);
 
 /**
  * @route   GET /api/volunteer/me

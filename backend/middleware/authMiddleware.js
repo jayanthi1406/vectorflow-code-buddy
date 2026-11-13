@@ -1,5 +1,13 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const { Student, Staff, Admin, Volunteer } = require('../models');
+
+const OBJECT_ID_HEX_REGEX = /^[a-fA-F0-9]{24}$/;
+
+const isValidObjectIdSubject = (value) =>
+  typeof value === 'string' &&
+  OBJECT_ID_HEX_REGEX.test(value) &&
+  mongoose.Types.ObjectId.isValid(value);
 
 /**
  * Retrieve the JWT secret key from environment variables.
@@ -97,11 +105,24 @@ const extractAndVerifyToken = (req) => {
       throw error;
     }
 
+    if (!isValidObjectIdSubject(decoded.sub.trim())) {
+      const error = new Error('Authentication token contains an invalid user identifier.');
+      error.code = 'INVALID_TOKEN';
+      error.statusCode = 401;
+      throw error;
+    }
+
     return decoded;
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
       const error = new Error('Session has expired. Please sign in again.');
       error.code = 'TOKEN_EXPIRED';
+      error.statusCode = 401;
+      throw error;
+    }
+    if (err.name === 'NotBeforeError') {
+      const error = new Error('Authentication token is not active yet.');
+      error.code = 'INVALID_TOKEN';
       error.statusCode = 401;
       throw error;
     }
