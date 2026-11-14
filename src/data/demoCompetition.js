@@ -8,12 +8,12 @@ export const DEMO_COMPETITION_CONFIGURATION = {
   roundDurationSeconds: 180,
   supportedLanguages: ['C', 'C++', 'Java', 'Python'],
   levels: [
-    { number: 1, name: 'Level 1', entryFee: 0, passReward: 100 },
-    { number: 2, name: 'Level 2', entryFee: 100, passReward: 100 },
-    { number: 3, name: 'Level 3', entryFee: 100, passReward: 100 },
-    { number: 4, name: 'Level 4', entryFee: 100, passReward: 100 },
-    { number: 5, name: 'Level 5', entryFee: 100, passReward: 100 },
-    { number: 6, name: 'Level 6', entryFee: 100, passReward: 100, isFinal: true },
+    { number: 1, name: 'Level 1', entryFee: 0, passReward: 50, failPayout: 50, safeZoneAmount: 50, isSafeZone: true },
+    { number: 2, name: 'Level 2', entryFee: 50, passReward: 100, failPayout: 50, safeZoneAmount: 0, isSafeZone: false },
+    { number: 3, name: 'Level 3', entryFee: 100, passReward: 150, failPayout: 50, safeZoneAmount: 0, isSafeZone: false },
+    { number: 4, name: 'Level 4', entryFee: 150, passReward: 250, failPayout: 50, safeZoneAmount: 250, isSafeZone: true },
+    { number: 5, name: 'Level 5', entryFee: 0, passReward: 350, failPayout: 250, safeZoneAmount: 0, isSafeZone: false },
+    { number: 6, name: 'Level 6', entryFee: 100, passReward: 500, failPayout: 250, safeZoneAmount: 0, isSafeZone: false, isFinal: true },
   ],
 }
 

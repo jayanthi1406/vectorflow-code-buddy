@@ -8,6 +8,8 @@ import OutcomePage from './pages/OutcomePage'
 import AuthPage from './pages/AuthPage'
 import RecordsPage from './pages/RecordsPage'
 import ProfilePage from './pages/ProfilePage'
+import WalletPage from './pages/WalletPage'
+import HistoryPage from './pages/HistoryPage'
 
 function AppRoutes() {
   const { state, loading, loadError, refresh } = useStudent()
@@ -23,6 +25,8 @@ function AppRoutes() {
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/records" element={<RecordsPage />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/wallet" element={<WalletPage />} />
+      <Route path="/history" element={<HistoryPage />} />
       <Route path="/round" element={<RoundPage />} />
       <Route path="/result/:result" element={<OutcomePage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

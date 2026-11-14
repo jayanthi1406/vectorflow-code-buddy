@@ -53,6 +53,7 @@ function responseMessage(body, status) {
 
 export function createApiClient({ baseUrl = backendConfig.apiBaseUrl, getAccessToken = () => null, fetchImpl = (...args) => globalThis.fetch(...args) } = {}) {
   let accessTokenProvider = getAccessToken
+  let unauthorizedHandler = () => {}
 
   async function request(path, options = {}) {
     const method = String(options.method || 'GET').toUpperCase()
@@ -115,6 +116,9 @@ export function createApiClient({ baseUrl = backendConfig.apiBaseUrl, getAccessT
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        try { unauthorizedHandler() } catch { /* the original HTTP error remains authoritative */ }
+      }
       const code = response.status === 401
         ? API_ERROR_CODES.UNAUTHORIZED
         : response.status >= 500
@@ -151,9 +155,13 @@ export function createApiClient({ baseUrl = backendConfig.apiBaseUrl, getAccessT
       if (typeof provider !== 'function') throw new TypeError('Access token provider must be a function.')
       accessTokenProvider = provider
     },
+    setUnauthorizedHandler(handler) {
+      if (typeof handler !== 'function') throw new TypeError('Unauthorized handler must be a function.')
+      unauthorizedHandler = handler
+    },
   }
 }
 
-// Current student services continue to use their demo adapters. Future API-backed
-// adapters can share this client after the backend route contracts are agreed.
+// Real authentication and verified competition adapters share this transport.
+// Demo services remain isolated on their local mock adapters.
 export const apiClient = createApiClient()

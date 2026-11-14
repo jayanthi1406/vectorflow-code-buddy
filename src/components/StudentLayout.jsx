@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { BookOpenText, LayoutDashboard, LogOut, Menu, UserRound, X } from 'lucide-react'
+import { BookOpenText, Clock3, LayoutDashboard, LogOut, Menu, UserRound, Wallet, X } from 'lucide-react'
 import { useState } from 'react'
 import { authService } from '../services/authService'
 import { studentAuthenticationService } from '../services/studentAuthenticationService'
@@ -9,7 +9,9 @@ import { Brand, DemoBanner } from './ui'
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/records', label: 'Competition records', icon: BookOpenText },
+  { to: '/history', label: 'Round history', icon: Clock3 },
   { to: '/profile', label: 'My profile', icon: UserRound },
+  { to: '/wallet', label: 'Wallet activity', icon: Wallet },
 ]
 export default function StudentLayout() {
   const { state, refresh } = useStudent()

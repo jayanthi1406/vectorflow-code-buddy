@@ -7,6 +7,10 @@ const MODE_KEY = 'code-buddy.auth.mode'
 let accessToken = null
 
 apiClient.setAccessTokenProvider(() => accessToken)
+apiClient.setUnauthorizedHandler(() => {
+  clearToken(); markRealMode()
+  try { window.dispatchEvent(new Event('code-buddy:unauthorized')) } catch { /* non-browser service tests */ }
+})
 
 function storage() {
   try { return window.sessionStorage } catch { return null }
