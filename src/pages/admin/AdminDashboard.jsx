@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Users, UserX, Trophy, Wallet, Activity } from "lucide-react";
-import { SectionHeading, MetricCard } from "../../components/UI";
+import { SectionHeading, MetricCard } from "../../components/ui";
 import { getAdminDashboardStats } from "../../services/adminDataService";
 
 const emptyStats = [
