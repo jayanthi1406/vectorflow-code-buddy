@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { ArrowRight, Check, CircleHelp, Clock3, Code2, LoaderCircle, ShieldCheck } from 'lucide-react'
 import { formatClock, formatDuration } from '../utils/formatters'
 
@@ -19,6 +20,20 @@ export function DemoBanner() { return <div className="demo-banner"><span classNa
 export function InlineTag({ children, tone = 'default' }) { return <span className={`tag tag-${tone}`}>{children}</span> }
 export function MetricCard({ label, value, caption, accent = false }) { return <article className={`metric-card${accent ? ' metric-accent' : ''}`}><p>{label}</p><strong>{value}</strong>{caption && <span>{caption}</span>}</article> }
 export function ProgressMark({ done = false }) { return <span className={`progress-mark${done ? ' progress-done' : ''}`} aria-label={done ? 'Completed' : 'Not yet completed'}>{done && <Check size={12} />}</span> }
-export function CountdownDisplay({ seconds, status }) { return <div className="timer-block"><span><Clock3 size={14} /> Volunteer controlled</span><strong>{formatClock(seconds)}</strong><small>{status || `Reference duration · ${formatDuration(seconds)}`}</small></div> }
+export function CountdownDisplay({ seconds, status, running = false }) {
+  const [displaySeconds, setDisplaySeconds] = useState(seconds)
+  useEffect(() => {
+    setDisplaySeconds(seconds)
+    if (!running || !Number.isFinite(seconds)) return undefined
+    const displayDeadline = Date.now() + seconds * 1000
+    const update = () => {
+      setDisplaySeconds(Math.max(0, Math.ceil((displayDeadline - Date.now()) / 1000)))
+    }
+    update()
+    const interval = window.setInterval(update, 1000)
+    return () => window.clearInterval(interval)
+  }, [seconds, running])
+  return <div className="timer-block"><span><Clock3 size={14} /> Volunteer controlled</span><strong>{Number.isFinite(displaySeconds) ? formatClock(displaySeconds) : '— — : — —'}</strong><small>{status || (Number.isFinite(seconds) ? `Reference duration · ${formatDuration(seconds)}` : 'Timer not started')}</small></div>
+}
 export function NextArrow() { return <ArrowRight size={17} aria-hidden="true" /> }
 export function TrustNote({ children }) { return <p className="trust-note"><ShieldCheck size={15} />{children}</p> }
