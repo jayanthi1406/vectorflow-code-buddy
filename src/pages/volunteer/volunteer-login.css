@@ -1,0 +1,168 @@
+.vol-login-page {
+  min-height: 100vh;
+  background: #f6f7f3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  position: relative;
+  color: #172d24;
+}
+
+.vol-login-brand {
+  position: absolute;
+  top: 28px;
+  left: 35px;
+}
+
+.vol-login-card {
+  width: 100%;
+  max-width: 430px;
+  background: #ffffff;
+  border: 1px solid #e5e9e4;
+  border-radius: 12px;
+  padding: 38px;
+  box-shadow: 0 8px 30px rgba(23, 45, 36, 0.04);
+}
+
+.vol-login-icon {
+  width: 48px;
+  height: 48px;
+  background: #edf3ed;
+  color: #315b46;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+
+.vol-login-eyebrow {
+  color: #59645e;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  margin: 0 0 9px;
+}
+
+.vol-login-card h1 {
+  font-size: 27px;
+  margin: 0;
+  color: #172d24;
+}
+
+.vol-login-description {
+  color: #59645e;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 10px 0 28px;
+}
+
+.vol-login-field {
+  margin-bottom: 20px;
+}
+
+.vol-login-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #35463c;
+}
+
+.vol-login-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dfe5df;
+  border-radius: 7px;
+  padding: 0 12px;
+  color: #59645e;
+  transition: border-color 0.2s ease;
+}
+
+.vol-login-input:focus-within {
+  border-color: #315b46;
+}
+
+.vol-login-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 13px 0;
+  font-size: 13px;
+  color: #172d24;
+}
+
+.vol-login-input input::placeholder {
+  color: #8a948d;
+}
+
+.vol-password-toggle {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: #59645e;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.vol-password-toggle:hover {
+  color: #183c2d;
+}
+
+.vol-login-error {
+  color: #b33b35;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: -5px 0 15px;
+}
+
+.vol-login-button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 7px;
+  background: #183c2d;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 5px;
+  transition: background 0.2s ease;
+}
+
+.vol-login-button:hover {
+  background: #285640;
+}
+
+.vol-login-footer {
+  text-align: center;
+  color: #59645e;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 23px 0 0;
+}
+
+.vol-login-bottom {
+  position: absolute;
+  bottom: 18px;
+  color: #7b857e;
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  text-align: center;
+}
+
+@media (max-width: 500px) {
+  .vol-login-card {
+    padding: 27px 22px;
+  }
+
+  .vol-login-brand {
+    left: 20px;
+    top: 18px;
+  }
+}
